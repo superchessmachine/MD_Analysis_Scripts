@@ -1,0 +1,6 @@
+The steps for automation:
+-Making new protein only files
+-Finding the residue indices for your protein + ligand
+-Building a new index file
+-Generation of a mmpbsa settings file
+-Running the command
