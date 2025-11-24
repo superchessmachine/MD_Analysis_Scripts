@@ -2,26 +2,37 @@
 set -e
 
 # ----------------------------------------------------------
-# Parse GPU flag
-#Example usage: bash minimize.sh --gpu 0
+# Defaults
+#Example usage: bash minimize.sh --dir /path/to/model2 --gpu 1
 # ----------------------------------------------------------
 GPU_ID=0
+TARGET_DIR="$(pwd)"
 
+# ----------------------------------------------------------
+# Parse flags
+# ----------------------------------------------------------
 while [[ $# -gt 0 ]]; do
     case "$1" in
         --gpu)
             GPU_ID="$2"
             shift 2
             ;;
+        --dir)
+            TARGET_DIR="$2"
+            shift 2
+            ;;
         *)
             echo "Unknown option: $1"
-            echo "Usage: bash minimize.sh --gpu [0|1|2|3]"
+            echo "Usage: bash minimize.sh [--dir PATH] [--gpu 0|1|2|3]"
             exit 1
             ;;
     esac
 done
 
 echo "Using GPU: $GPU_ID"
+echo "Working directory: $TARGET_DIR"
+
+cd "$TARGET_DIR"
 
 # ----------------------------------------------------------
 # Auto-detect CIF
@@ -29,12 +40,12 @@ echo "Using GPU: $GPU_ID"
 CIFS=( *.cif )
 
 if (( ${#CIFS[@]} == 0 )); then
-    echo "ERROR: No .cif file found in this directory."
+    echo "ERROR: No .cif file found in $TARGET_DIR"
     exit 1
 fi
 
 if (( ${#CIFS[@]} > 1 )); then
-    echo "ERROR: Multiple .cif files found. Keep only one:"
+    echo "ERROR: Multiple .cif files found in $TARGET_DIR"
     printf "%s\n" "${CIFS[@]}"
     exit 1
 fi
@@ -68,7 +79,7 @@ gmx editconf -f protein.gro -o boxed.gro -c -d 1.0 -bt dodecahedron
 gmx solvate -cp boxed.gro -o solv.gro -p topol.top
 
 # ----------------------------------------------------------
-# 5. Mini ion EM .mdp
+# 5. Mini ion EM
 # ----------------------------------------------------------
 cat > ions_em.mdp <<EOF
 integrator      = steep
@@ -130,4 +141,4 @@ CUDA_VISIBLE_DEVICES=$GPU_ID gmx mdrun \
 # ----------------------------------------------------------
 gmx editconf -f em_single.gro -o minimized.pdb
 
-echo "Done. Output: minimized.pdb"
+echo "Done. Output: $TARGET_DIR/minimized.pdb"
