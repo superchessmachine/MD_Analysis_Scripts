@@ -1,0 +1,15 @@
+you can just paste this into cli:
+python3 - << 'EOF'
+import MDAnalysis as mda
+
+u = mda.Universe("md_100ns.gro")
+
+skip = {"SOL", "NA", "CL"}
+
+for seg in u.segments:
+    print(f"Chain: {seg.segid}")
+    for r in seg.residues:
+        if r.resname not in skip:
+            print(f"  {r.resname} {r.resid}  (index {r.ix})")
+    print()
+EOF
