@@ -1,0 +1,304 @@
+target protein RMSF, GBSA, and PBSA workflow guide
+========================================
+
+Purpose
+-------
+This guide documents the workflow used for the packaged target protein simulations in:
+
+  /Users/ysb/analysis_project
+
+The reusable automation script is:
+
+  /Users/ysb/MD_Analysis_Scripts/md_rmsf_mmpbsa_workflow.py
+
+It handles:
+
+  1. C-alpha RMSF plots comparing apo and ligand-bound simulations.
+  2. Last-N-ns RMSF plots.
+  3. Quick protein-ligand GBSA with AmberTools MMPBSA.py.
+  4. Last-20-ns protein-ligand PBSA with AmberTools MMPBSA.py.
+
+The script was written for packaged trajectory folders that only contain
+GROMACS view files, for example:
+
+  apo_monomer/apo_monomer_view.gro
+  apo_monomer/apo_monomer_view.xtc
+  monomer_ligand_rep1/monomer_ligand_rep1_view.gro
+  monomer_ligand_rep1/monomer_ligand_rep1_view.xtc
+
+
+Conda environments and tools
+----------------------------
+Use the existing conda environments:
+
+  /Users/ysb/miniforge3/envs/mdanalysis/bin/python
+  /Users/ysb/miniforge3/envs/gmxmmpbsa
+
+The workflow script runs external tools from:
+
+  /Users/ysb/miniforge3/envs/gmxmmpbsa/bin
+  /Users/ysb/miniforge3/envs/gmxmmpbsa/bin.ARM_NEON_ASIMD/gmx
+
+Main tools used:
+
+  MDAnalysis
+  matplotlib
+  GROMACS gmx
+  gmx_MMPBSA
+  antechamber
+  parmchk2
+  tleap
+  MMPBSA.py
+
+
+Why the workflow uses an AmberTools fallback
+--------------------------------------------
+Native gmx_MMPBSA setup was attempted, but the packaged system does not include
+the original GROMACS .top/.itp/.tpr files. gmx_MMPBSA can still generate useful
+intermediate receptor and ligand PDB files from the structure and index, but it
+fails at tleap for this ligand/disulfide setup.
+
+The script therefore:
+
+  1. Uses gmx_MMPBSA to create receptor/ligand PDB intermediates.
+  2. Generates GAFF/AM1-BCC ligand parameters from the extracted ligand PDB.
+  3. Detects CYX-SG disulfides automatically from the receptor PDB.
+  4. Builds COM/REC/LIG Amber prmtops with tleap.
+  5. Strips the trajectory to protein plus ligand.
+  6. Runs AmberTools MMPBSA.py for GBSA and/or PBSA.
+
+Because of that fallback, gmx_MMPBSA_ana is not the primary viewer for these
+results unless a native COMPACT_gmx_MMPBSA_RESULTS.mmxsa exists. Use the CSV
+plotting commands below instead.
+
+
+Run RMSF only
+-------------
+From anywhere:
+
+  /Users/ysb/miniforge3/envs/mdanalysis/bin/python /Users/ysb/MD_Analysis_Scripts/md_rmsf_mmpbsa_workflow.py \
+    --root /Users/ysb/analysis_project \
+    --outdir analysis/automated_outputs
+
+Outputs:
+
+  /Users/ysb/analysis_project/analysis/automated_outputs/rmsf/rmsf_comparison_full.png
+  /Users/ysb/analysis_project/analysis/automated_outputs/rmsf/rmsf_comparison_last10ns.png
+  /Users/ysb/analysis_project/analysis/automated_outputs/rmsf/rmsf_comparison_full.csv
+  /Users/ysb/analysis_project/analysis/automated_outputs/rmsf/rmsf_comparison_last10ns.csv
+  /Users/ysb/analysis_project/analysis/automated_outputs/rmsf/rmsf_summary.txt
+
+Current trajectory summary from this package:
+
+  Apo monomer:
+    70 ns, 141 frames, 0.5 ns spacing
+
+  Ligand-bound monomer:
+    76 ns, 153 frames, 0.5 ns spacing
+
+The default last-N-ns RMSF window is last 10 ns.
+
+
+Run RMSF plus quick GBSA
+------------------------
+This runs RMSF and a quick GBSA over the last 10 ns by default. It samples every
+5 saved frames. For this trajectory that processed 5 frames.
+
+  /Users/ysb/miniforge3/envs/mdanalysis/bin/python /Users/ysb/MD_Analysis_Scripts/md_rmsf_mmpbsa_workflow.py \
+    --root /Users/ysb/analysis_project \
+    --outdir analysis/automated_outputs \
+    --run-gbsa \
+    --ligand-resname UNL \
+    --ligand-charge 1
+
+Main GBSA outputs:
+
+  /Users/ysb/analysis_project/analysis/automated_outputs/gbsa/quick_gbsa.dat
+  /Users/ysb/analysis_project/analysis/automated_outputs/gbsa/quick_gbsa.csv
+
+Current quick GBSA result:
+
+  DELTA TOTAL = -39.7752 +/- 1.9356 kcal/mol
+
+
+Run RMSF plus last-20-ns PBSA
+-----------------------------
+This runs RMSF and PBSA over the last 20 ns. It samples every 5 saved frames.
+For this trajectory that used frames 113-153 and processed 9 frames.
+
+  /Users/ysb/miniforge3/envs/mdanalysis/bin/python /Users/ysb/MD_Analysis_Scripts/md_rmsf_mmpbsa_workflow.py \
+    --root /Users/ysb/analysis_project \
+    --outdir analysis/automated_outputs \
+    --run-pbsa \
+    --pbsa-last-ns 20 \
+    --ligand-resname UNL \
+    --ligand-charge 1
+
+Main PBSA outputs:
+
+  /Users/ysb/analysis_project/analysis/automated_outputs/gbsa/last20ns_pbsa.dat
+  /Users/ysb/analysis_project/analysis/automated_outputs/gbsa/last20ns_pbsa.csv
+
+Current last-20-ns PBSA result:
+
+  DELTA TOTAL = -36.5174 +/- 2.1216 kcal/mol
+
+
+Run RMSF, GBSA, and PBSA together
+---------------------------------
+This is the all-in-one command for this package:
+
+  /Users/ysb/miniforge3/envs/mdanalysis/bin/python /Users/ysb/MD_Analysis_Scripts/md_rmsf_mmpbsa_workflow.py \
+    --root /Users/ysb/analysis_project \
+    --outdir analysis/automated_outputs \
+    --run-gbsa \
+    --run-pbsa \
+    --pbsa-last-ns 20 \
+    --ligand-resname UNL \
+    --ligand-charge 1
+
+
+Important options
+-----------------
+Root and input files:
+
+  --root
+    Root folder containing the simulation folders.
+
+  --apo-gro / --apo-xtc
+    Apo structure and trajectory paths relative to --root.
+
+  --bound-gro / --bound-xtc
+    Ligand-bound structure and trajectory paths relative to --root.
+
+RMSF:
+
+  --last-ns 10
+    Last-N-ns RMSF window. Default is 10.
+
+Ligand:
+
+  --ligand-resname UNL
+    Ligand residue name in the GROMACS files.
+
+  --ligand-charge 1
+    Net ligand charge passed to antechamber. Ligand here was treated as +1.
+
+GBSA:
+
+  --run-gbsa
+    Enable GBSA.
+
+  --gbsa-interval 5
+    Analyze every 5th saved frame.
+
+  --gbsa-startframe / --gbsa-endframe
+    Optional manual frame range.
+
+PBSA:
+
+  --run-pbsa
+    Enable PBSA.
+
+  --pbsa-last-ns 20
+    Last-N-ns PBSA window if --pbsa-startframe is not given.
+
+  --pbsa-interval 5
+    Analyze every 5th saved frame.
+
+  --pbsa-startframe / --pbsa-endframe
+    Optional manual frame range.
+
+
+Plot and visualize MMPBSA CSV output
+------------------------------------
+The repo contains plotting helpers under:
+
+  /Users/ysb/MD_Analysis_Scripts/MMPBSA_PB_Plots
+
+To plot PBSA delta energy terms:
+
+  cd /Users/ysb/analysis_project/analysis/automated_outputs/gbsa
+  cp last20ns_pbsa.csv FINAL_RESULTS_MMPBSA_PB.csv
+  python /Users/ysb/MD_Analysis_Scripts/MMPBSA_PB_Plots/Split_MMPBSA_PB_Output.py
+  cp /Users/ysb/MD_Analysis_Scripts/MMPBSA_PB_Plots/plot_delta_energy_terms.py .
+  /Users/ysb/miniforge3/envs/mdanalysis/bin/python plot_delta_energy_terms.py
+
+Expected plot outputs in the current directory:
+
+  delta_TOTAL_vs_frame.png
+  delta_gas_vs_solv.png
+  delta_components_vs_frame.png
+  delta_TOTAL_hist.png
+  delta_TOTAL_running_avg.png
+
+For GBSA, the PB plotting script expects PB column names such as EPB. The GBSA
+CSV uses EGB instead, so either inspect quick_gbsa.dat directly or adapt the
+plotting columns before using the PB plotting script.
+
+
+About gmx_MMPBSA_ana
+--------------------
+If a native gmx_MMPBSA run succeeds and produces a compact results file, use:
+
+  conda run -n gmxmmpbsa gmx_MMPBSA_ana -f COMPACT_gmx_MMPBSA_RESULTS.mmxsa
+
+For the current packaged target protein files, native gmx_MMPBSA does not complete the
+full topology build, so this file is not produced. Use the MMPBSA.py .dat/.csv
+outputs and the plotting workflow above.
+
+
+Files worth keeping
+-------------------
+RMSF:
+
+  analysis/automated_outputs/rmsf/*.png
+  analysis/automated_outputs/rmsf/*.csv
+  analysis/automated_outputs/rmsf/rmsf_summary.txt
+
+Binding energies:
+
+  analysis/automated_outputs/gbsa/quick_gbsa.dat
+  analysis/automated_outputs/gbsa/quick_gbsa.csv
+  analysis/automated_outputs/gbsa/last20ns_pbsa.dat
+  analysis/automated_outputs/gbsa/last20ns_pbsa.csv
+  analysis/automated_outputs/gbsa/COM.prmtop
+  analysis/automated_outputs/gbsa/REC.prmtop
+  analysis/automated_outputs/gbsa/LIG.prmtop
+  analysis/automated_outputs/gbsa/complex_protein_ligand.xtc
+  analysis/automated_outputs/gbsa/manual_leap.in
+  analysis/automated_outputs/gbsa/unl_gaff.mol2
+  analysis/automated_outputs/gbsa/unl_gaff.frcmod
+
+
+Known caveats
+-------------
+1. The packaged files are view-only .gro/.xtc files, not a full original
+   GROMACS simulation package. Results are suitable as a quick interaction
+   analysis, not a fully polished production free-energy protocol.
+
+2. The ligand is generated with GAFF/AM1-BCC from the extracted ligand PDB.
+   If you have the original ligand mol2/topology from system setup, use that
+   for a more faithful analysis.
+
+3. PBSA is slower than GBSA. Keep --pbsa-interval > 1 for quick checks.
+
+4. The script sets GMX_MAXBACKUP=-1 so reruns overwrite GROMACS output files
+   instead of creating many #backup# files.
+
+5. The current PBSA settings use inp=1, radiopt=0, istrng=0.150, fillratio=4.0.
+   These were chosen as conservative quick settings for the generated Amber
+   prmtops and GAFF ligand.
+
+
+Git reference
+-------------
+Repository:
+
+  git@github.com:superchessmachine/MD_Analysis_Scripts.git
+
+Relevant commits:
+
+  a9419b6 Add automated target protein RMSF and GBSA workflow
+  b8ea52f Add PBSA option to target protein workflow
+
